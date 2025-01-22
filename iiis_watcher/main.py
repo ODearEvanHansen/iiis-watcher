@@ -1,6 +1,7 @@
 import os
 import smtplib
 import requests
+import json
 from bs4 import BeautifulSoup
 from email.mime.text import MIMEText
 from dotenv import load_dotenv
@@ -13,8 +14,19 @@ def get_seminar_items():
     url = "https://iiis.tsinghua.edu.cn/seminars/"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    # Add logic to parse seminar items
-    return []
+    
+    seminar_items = []
+    for item in soup.select('.seminar-item'):
+        title = item.select_one('.seminar-title').text.strip()
+        date = item.select_one('.seminar-date').text.strip()
+        speaker = item.select_one('.seminar-speaker').text.strip()
+        seminar_items.append({
+            'title': title,
+            'date': date,
+            'speaker': speaker
+        })
+    
+    return seminar_items
 
 def send_email(subject, body):
     msg = MIMEText(body)
@@ -29,8 +41,31 @@ def send_email(subject, body):
 
 def check_for_updates():
     current_items = get_seminar_items()
-    # Add logic to compare with previous items and send email if new items found
-    pass
+    previous_items = load_previous_items()
+    
+    new_items = []
+    for item in current_items:
+        if item not in previous_items:
+            new_items.append(item)
+    
+    if new_items:
+        subject = "New Seminar Updates"
+        body = "New seminars found:\n\n"
+        for item in new_items:
+            body += f"Title: {item['title']}\nDate: {item['date']}\nSpeaker: {item['speaker']}\n\n"
+        send_email(subject, body)
+        save_previous_items(current_items)
+
+def load_previous_items():
+    try:
+        with open('previous_items.json', 'r') as file:
+            return json.load(file)
+    except FileNotFoundError:
+        return []
+
+def save_previous_items(items):
+    with open('previous_items.json', 'w') as file:
+        json.dump(items, file)
 
 def main():
     schedule.every().hour.do(check_for_updates)
