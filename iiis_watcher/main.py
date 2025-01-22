@@ -13,8 +13,22 @@ def get_seminar_items():
     url = "https://iiis.tsinghua.edu.cn/seminars/"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
-    # Add logic to parse seminar items
-    return []
+    
+    seminars = []
+    for item in soup.select('.seminar-item'):
+        title = item.select_one('.title').text.strip()
+        date = item.select_one('.date').text.strip()
+        speaker = item.select_one('.speaker').text.strip()
+        abstract = item.select_one('.abstract').text.strip()
+        
+        seminars.append({
+            'title': title,
+            'date': date,
+            'speaker': speaker,
+            'abstract': abstract
+        })
+    
+    return seminars
 
 def send_email(subject, body):
     msg = MIMEText(body)
@@ -28,9 +42,35 @@ def send_email(subject, body):
         server.send_message(msg)
 
 def check_for_updates():
+    # Load previously seen seminars
+    seen_seminars = set()
+    if os.path.exists('seen_seminars.txt'):
+        with open('seen_seminars.txt', 'r') as f:
+            seen_seminars = set(f.read().splitlines())
+    
     current_items = get_seminar_items()
-    # Add logic to compare with previous items and send email if new items found
-    pass
+    new_seminars = []
+    
+    for seminar in current_items:
+        seminar_id = f"{seminar['date']}-{seminar['title']}"
+        if seminar_id not in seen_seminars:
+            new_seminars.append(seminar)
+            seen_seminars.add(seminar_id)
+    
+    # Save updated seen seminars
+    with open('seen_seminars.txt', 'w') as f:
+        f.write('\n'.join(seen_seminars))
+    
+    if new_seminars:
+        subject = f"New IIIS Seminars Found ({len(new_seminars)})"
+        body = "New seminars:\n\n"
+        for seminar in new_seminars:
+            body += f"Title: {seminar['title']}\n"
+            body += f"Date: {seminar['date']}\n"
+            body += f"Speaker: {seminar['speaker']}\n"
+            body += f"Abstract: {seminar['abstract']}\n\n"
+        
+        send_email(subject, body)
 
 def main():
     schedule.every().hour.do(check_for_updates)
