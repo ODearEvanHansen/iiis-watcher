@@ -8,4 +8,3 @@ iiis_watcher.egg-info/dependency_links.txt
 iiis_watcher.egg-info/requires.txt
 iiis_watcher.egg-info/top_level.txt
 tests/test_iiis_watcher.py
-tests/test_watcher.py
