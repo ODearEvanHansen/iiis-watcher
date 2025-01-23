@@ -1,4 +1,5 @@
 LICENSE
+README.md
 setup.py
 iiis_watcher/__init__.py
 iiis_watcher/main.py
