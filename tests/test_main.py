@@ -15,13 +15,28 @@ def mock_html():
     '''
 
 def test_get_seminar_items(mock_html):
-    with patch('requests.get') as mock_get, \
-         patch('bs4.BeautifulSoup') as mock_soup:
+    # Create a mock for the requests.get function
+    with patch('requests.get') as mock_get:
+        # Create a mock response
         mock_response = Mock()
-        mock_response.text = mock_html
+        mock_response.text = """
+        <html>
+        <body>
+            <div class="seminar-item">
+                <div class="title">Test Seminar</div>
+                <div class="date">2025-01-01</div>
+                <div class="speaker">Test Speaker</div>
+                <div class="abstract">Test abstract</div>
+            </div>
+        </body>
+        </html>
+        """
         mock_get.return_value = mock_response
         
+        # Call the function with the real implementation
         seminars = get_seminar_items()
+        
+        # Verify the results
         assert len(seminars) == 1
         assert seminars[0]['title'] == 'Test Seminar'
         assert seminars[0]['date'] == '2025-01-01'
@@ -31,6 +46,7 @@ def test_get_seminar_items(mock_html):
 def test_check_for_updates_new_seminar():
     with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
          patch('iiis_watcher.main.send_email') as mock_send, \
+         patch('os.path.exists', return_value=True), \
          patch('builtins.open', create=True) as mock_open:
         
         # Mock seminar data
@@ -41,8 +57,10 @@ def test_check_for_updates_new_seminar():
             'abstract': 'New abstract'
         }]
         
-        # Mock file operations
-        mock_open.return_value.read.return_value = ''
+        # Set up mock file operations
+        mock_file = Mock()
+        mock_file.read.return_value = ''
+        mock_open.return_value.__enter__.return_value = mock_file
         
         check_for_updates()
         
@@ -53,6 +71,7 @@ def test_check_for_updates_new_seminar():
 def test_check_for_updates_no_new_seminars():
     with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
          patch('iiis_watcher.main.send_email') as mock_send, \
+         patch('os.path.exists', return_value=True), \
          patch('builtins.open', create=True) as mock_open:
         
         # Mock seminar data
@@ -63,8 +82,10 @@ def test_check_for_updates_no_new_seminars():
             'abstract': 'Existing abstract'
         }]
         
-        # Mock file operations
-        mock_open.return_value.read.return_value = '2025-01-01-Existing Seminar\n'
+        # Set up mock file operations
+        mock_file = Mock()
+        mock_file.read.return_value = '2025-01-01-Existing Seminar\n'
+        mock_open.return_value.__enter__.return_value = mock_file
         
         check_for_updates()
         
@@ -72,23 +93,38 @@ def test_check_for_updates_no_new_seminars():
         mock_send.assert_not_called()
 
 def test_check_for_updates_file_creation(tmpdir):
-    with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
-         patch('iiis_watcher.main.send_email'):
+    # Set up temp directory
+    original_dir = os.getcwd()
+    os.chdir(tmpdir)
+    
+    try:
+        # Make sure the file doesn't exist
+        if os.path.exists('seen_seminars.txt'):
+            os.remove('seen_seminars.txt')
         
-        # Set up temp directory
-        os.chdir(tmpdir)
-        
-        # Mock seminar data
-        mock_get.return_value = [{
-            'title': 'New Seminar',
-            'date': '2025-01-01',
-            'speaker': 'New Speaker',
-            'abstract': 'New abstract'
-        }]
-        
-        check_for_updates()
-        
-        # Verify file was created
-        assert os.path.exists('seen_seminars.txt')
-        with open('seen_seminars.txt') as f:
-            assert '2025-01-01-New Seminar' in f.read()
+        # Mock the get_seminar_items function
+        with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
+             patch('iiis_watcher.main.send_email') as mock_send:
+            
+            # Mock seminar data
+            mock_get.return_value = [{
+                'title': 'New Seminar',
+                'date': '2025-01-01',
+                'speaker': 'New Speaker',
+                'abstract': 'New abstract'
+            }]
+            
+            # Run the function
+            check_for_updates()
+            
+            # Verify file was created
+            assert os.path.exists('seen_seminars.txt')
+            with open('seen_seminars.txt') as f:
+                content = f.read()
+                assert '2025-01-01-New Seminar' in content
+            
+            # Verify email was sent
+            mock_send.assert_called_once()
+    finally:
+        # Restore original directory
+        os.chdir(original_dir)
