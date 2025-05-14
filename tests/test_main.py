@@ -92,39 +92,34 @@ def test_check_for_updates_no_new_seminars():
         # Verify no email was sent
         mock_send.assert_not_called()
 
-def test_check_for_updates_file_creation(tmpdir):
-    # Set up temp directory
-    original_dir = os.getcwd()
-    os.chdir(tmpdir)
+def test_check_for_updates_file_creation(tmpdir, monkeypatch):
+    # Set up temp directory by changing the working directory using monkeypatch
+    monkeypatch.chdir(tmpdir)
     
-    try:
-        # Make sure the file doesn't exist
-        if os.path.exists('seen_seminars.txt'):
-            os.remove('seen_seminars.txt')
+    # Make sure the file doesn't exist
+    if os.path.exists('seen_seminars.txt'):
+        os.remove('seen_seminars.txt')
+    
+    # Mock the get_seminar_items function
+    with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
+         patch('iiis_watcher.main.send_email') as mock_send:
         
-        # Mock the get_seminar_items function
-        with patch('iiis_watcher.main.get_seminar_items') as mock_get, \
-             patch('iiis_watcher.main.send_email') as mock_send:
-            
-            # Mock seminar data
-            mock_get.return_value = [{
-                'title': 'New Seminar',
-                'date': '2025-01-01',
-                'speaker': 'New Speaker',
-                'abstract': 'New abstract'
-            }]
-            
-            # Run the function
-            check_for_updates()
-            
-            # Verify file was created
-            assert os.path.exists('seen_seminars.txt')
-            with open('seen_seminars.txt') as f:
-                content = f.read()
-                assert '2025-01-01-New Seminar' in content
-            
-            # Verify email was sent
-            mock_send.assert_called_once()
-    finally:
-        # Restore original directory
-        os.chdir(original_dir)
+        # Mock seminar data
+        mock_get.return_value = [{
+            'title': 'New Seminar',
+            'date': '2025-01-01',
+            'speaker': 'New Speaker',
+            'abstract': 'New abstract'
+        }]
+        
+        # Run the function
+        check_for_updates()
+        
+        # Verify file was created
+        assert os.path.exists('seen_seminars.txt')
+        with open('seen_seminars.txt') as f:
+            content = f.read()
+            assert '2025-01-01-New Seminar' in content
+        
+        # Verify email was sent
+        mock_send.assert_called_once()

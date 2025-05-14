@@ -63,12 +63,13 @@ def check_for_updates():
     
     if new_seminars:
         subject = f"New IIIS Seminars Found ({len(new_seminars)})"
-        body = "New seminars:\n\n"
+        body_lines = ["New seminars:\n\n"]
         for seminar in new_seminars:
-            body += f"Title: {seminar['title']}\n"
-            body += f"Date: {seminar['date']}\n"
-            body += f"Speaker: {seminar['speaker']}\n"
-            body += f"Abstract: {seminar['abstract']}\n\n"
+            body_lines.append(f"Title: {seminar['title']}\n")
+            body_lines.append(f"Date: {seminar['date']}\n")
+            body_lines.append(f"Speaker: {seminar['speaker']}\n")
+            body_lines.append(f"Abstract: {seminar['abstract']}\n\n")
+        body = ''.join(body_lines)
         
         send_email(subject, body)
 
